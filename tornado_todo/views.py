@@ -1,13 +1,11 @@
 import json
-import logging
-import os
-from tornado.httpserver import HTTPServer
-from tornado.ioloop import IOLoop
-from tornado.options import options, define
-from tornado.web import RequestHandler, Application
 
-
-define('port', default=8888, help='port to listen on')
+from tornado.gen import coroutine
+from tornado.web import RequestHandler
+from tornado_sqlalchemy import (
+    SessionMixin,
+    as_future
+)
 
 
 class BaseHandler(RequestHandler):
@@ -20,6 +18,7 @@ class BaseHandler(RequestHandler):
 
 
 class InfoView(BaseHandler):
+
     def get(self):
         routes = {
             'info': 'GET /api/v1',
@@ -38,14 +37,52 @@ class InfoView(BaseHandler):
         self.write(json.dumps(routes))
 
 
-def main():
-    app = Application([
-        (r'/api/v1', InfoView)
-    ], **options.group_dict('application'))
-    http_server = HTTPServer(app)
-    http_server.listen(options.port)
-    logging.info('Listening on http://localhost:%d' % options.port)
-    IOLoop.current().start()
+class RegistrationView(BaseHandler):
 
-if __name__ == '__main__':
-    main()
+    def post(self):
+        pass
+
+
+class ProfileView(BaseHandler):
+
+    def get(self):
+        pass
+
+    def put(self):
+        pass
+
+    def delete(self):
+        pass
+
+
+class LoginView(BaseHandler):
+
+    def post(self):
+        pass
+
+
+class LogoutView(BaseHandler):
+
+    def get(self):
+        pass
+
+
+class TaskListView(BaseHandler):
+
+    def get(self):
+        pass
+
+    def post(self):
+        pass
+
+
+class TaskView(BaseHandler):
+
+    def get(self):
+        pass
+
+    def put(self):
+        pass
+
+    def delete(self):
+        pass
