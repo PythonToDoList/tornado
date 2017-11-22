@@ -1,7 +1,10 @@
 import logging
 import os
 
-from tornado_todo.views import InfoView
+from tornado_todo.views import (
+    InfoView,
+    RegistrationView
+)
 
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
@@ -18,8 +21,10 @@ factory = make_session_factory(os.environ.get(
 
 
 def main():
+    api_root = '/api/v1'
     app = Application([
-        (r'/api/v1', InfoView)
+        (api_root, InfoView),
+        (api_root + r'/accounts', RegistrationView)
     ],
         **options.group_dict('application'),
         session_factory=factory

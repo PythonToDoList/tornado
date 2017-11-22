@@ -1,5 +1,9 @@
 import json
 
+from passlib.hash import pbkdf2_sha256 as hasher
+
+from tornado_todo.models import Profile
+
 from tornado.gen import coroutine
 from tornado.web import RequestHandler
 from tornado_sqlalchemy import (
@@ -8,13 +12,18 @@ from tornado_sqlalchemy import (
 )
 
 
-class BaseHandler(RequestHandler):
+class BaseHandler(RequestHandler, SessionMixin):
 
     def prepare(self, *args, **kwargs):
-        self.response = dict()
+        self.form_data = self._convert_to_unicode(self.request.arguments)
+        self.response = {}
 
     def set_default_headers(self):
         self.set_header("Content-Type", 'application/json; charset="utf-8"')
+
+    def _convert_to_unicode(self, data_dict):
+        output = {key: [val.decode('utf8') for val in val_list] for key, val_list in data_dict.items()}
+        return output
 
 
 class InfoView(BaseHandler):
@@ -39,8 +48,30 @@ class InfoView(BaseHandler):
 
 class RegistrationView(BaseHandler):
 
+    @coroutine
     def post(self):
-        pass
+        needed = ['username']#, 'email', 'password', 'password2']
+        if all([key in self.form_data for key in needed]):
+            username = self.form_data['username'][0]
+            with self.make_session() as session:
+                profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
+                if not profile:
+                    if self.form_data['password'] == self.form_data['password2']:
+                        self.build_profile(session)
+
+                    self.set_status(201)
+                    self.write(json.dumps({'msg': 'Profile created'}))
+
+    def build_profile(self, session):
+        # hashed_password = yield executor.submit(hasher.hash, self.form_data['password'][0])
+        hashed_password = hasher.hash(self.form_data['password'][0])
+        new_profile = Profile(
+            username=self.form_data['username'][0],
+            password=hashed_password,
+            email=self.form_data['email'][0]
+        )
+        session.add(new_profile)
+        session.commit()
 
 
 class ProfileView(BaseHandler):

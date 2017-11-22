@@ -12,6 +12,7 @@ tests_require = []
 
 dev_requires = [
     'ipython',
+    'requests'
 ]
 
 setup(
@@ -39,6 +40,7 @@ setup(
     entry_points={
         'console_scripts': [
             'app_serve = tornado_todo:main',
+            'initdb = tornado_todo.initializedb:main'
         ],
     },
 )

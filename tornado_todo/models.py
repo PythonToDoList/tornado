@@ -1,3 +1,4 @@
+from datetime import datetime
 from sqlalchemy import (
     Boolean,
     Column,
@@ -23,6 +24,10 @@ class Profile(Base):
     password = Column(Unicode, nullable=False)
     date_joined = Column(DateTime, nullable=False)
     tasks = relationship("Task", back_populates='profile')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.date_joined = datetime.now()
 
     def to_dict(self):
         """Get the object's properties as a dictionary."""
