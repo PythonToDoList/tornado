@@ -1,9 +1,13 @@
+"""Main configuration for application."""
 import logging
 import os
 
 from tornado_todo.views import (
     InfoView,
-    RegistrationView
+    ProfileView,
+    RegistrationView,
+    TaskListView,
+    TaskView
 )
 
 from tornado.httpserver import HTTPServer
@@ -21,10 +25,14 @@ factory = make_session_factory(os.environ.get(
 
 
 def main():
+    """Construct and serve the application."""
     api_root = '/api/v1'
     app = Application([
         (api_root, InfoView),
-        (api_root + r'/accounts', RegistrationView)
+        (api_root + r'/accounts', RegistrationView),
+        (api_root + r'/accounts/([\w]+)', ProfileView),
+        (api_root + r'/accounts/([\w]+)/tasks', TaskListView),
+        (api_root + r'/accounts/([\w]+)/tasks/([\d]+)', TaskView),
     ],
         **options.group_dict('application'),
         session_factory=factory

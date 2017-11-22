@@ -1,11 +1,14 @@
+"""For initializing a new database."""
 import os
 from sqlalchemy import create_engine
 from tornado_todo.models import Base
 
 
 def main():
+    """Tear down existing tables and create new ones."""
     engine = create_engine(os.environ.get('DATABASE_URL'))
-    Base.metadata.drop_all(engine)
+    if bool(os.environ.get('DEBUG', 'True')):
+        Base.metadata.drop_all(engine)
     Base.metadata.create_all(engine)
 
 

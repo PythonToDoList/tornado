@@ -1,3 +1,4 @@
+"""Models and related code."""
 from datetime import datetime
 from sqlalchemy import (
     Boolean,
@@ -17,6 +18,8 @@ DATE_FMT = '%d/%m/%Y %H:%M:%S'
 
 
 class Profile(Base):
+    """The profile object."""
+
     __tablename__ = 'profiles'
     id = Column(Integer, primary_key=True)
     username = Column(Unicode, nullable=False)
@@ -26,12 +29,12 @@ class Profile(Base):
     tasks = relationship("Task", back_populates='profile')
 
     def __init__(self, *args, **kwargs):
+        """Set the join date on initialization."""
         super().__init__(*args, **kwargs)
         self.date_joined = datetime.now()
 
     def to_dict(self):
         """Get the object's properties as a dictionary."""
-
         return {
             "id": self.id,
             "username": self.username,
@@ -41,10 +44,13 @@ class Profile(Base):
         }
 
     def __repr__(self):
+        """Set the string representation of the object."""
         return "<Profile: {} | tasks: {}>".format(self.username, len(self.tasks))
 
 
 class Task(Base):
+    """The task object."""
+
     __tablename__ = 'tasks'
     id = Column(Integer, primary_key=True)
     name = Column(Unicode, nullable=False)
@@ -56,6 +62,7 @@ class Task(Base):
     profile = relationship("Profile", back_populates='tasks')
 
     def to_dict(self):
+        """Get the object's properties as a dictionary."""
         return {
             'id': self.id,
             'name': self.name,
@@ -67,4 +74,5 @@ class Task(Base):
         }
 
     def __repr__(self):
+        """Set the string representation of the object."""
         return "<Task: {} | owner: {}>".format(self.name, self.profile.username)

@@ -39,7 +39,7 @@ setup(
     install_requires=requires,
     entry_points={
         'console_scripts': [
-            'app_serve = tornado_todo:main',
+            'serve_app = tornado_todo:main',
             'initdb = tornado_todo.initializedb:main'
         ],
     },
