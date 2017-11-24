@@ -1,4 +1,5 @@
 """View classes for the todo list."""
+from datetime import datetime
 import json
 
 from passlib.hash import pbkdf2_sha256 as hasher
@@ -120,6 +121,7 @@ class ProfileView(BaseHandler):
 
     @coroutine
     def delete(self, username):
+        """Delete an existing task from the database."""
         with self.make_session() as session:
             profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
             session.delete(profile)
@@ -128,48 +130,112 @@ class ProfileView(BaseHandler):
 
 
 class TaskListView(BaseHandler):
+    """View for reading and adding new tasks."""
 
     @coroutine
     def get(self, username):
+        """Get all tasks for an existing user."""
         with self.make_session() as session:
             profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
             if profile:
-                tasks = yield as_future(session.query(Task).all)
-
+                tasks = [task.to_dict() for task in profile.tasks]
+                self.send_response({
+                    'username': profile.username,
+                    'tasks': tasks
+                })
             else:
-                self.send_response({'error': 'You do not have permission to access this profile.'}, status=403)
-
+                self.send_response({'error': 'The profile does not exist'}, status=404)
 
     @coroutine
     def post(self, username):
+        """Create a new task."""
         with self.make_session() as session:
             profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
             if profile:
-                pass
+                due_date = self.form_data['due_date'][0]
+                try:
+                    task = Task(
+                        name=self.form_data['name'][0],
+                        note=self.form_data['note'][0],
+                        creation_date=datetime.now(),
+                        due_date=datetime.strptime(due_date, '%d/%m/%Y %H:%M:%S') if due_date else None,
+                        completed=self.form_data['completed'][0],
+                        profile_id=profile.id,
+                        profile=profile
+                    )
+                    session.add(task)
+                    session.commit()
+                    self.send_response({'msg': 'posted'}, status=201)
+                except KeyError:
+                    self.send_response({'error': 'Some fields are missing'}, 400)
             else:
-                self.send_response({'error': 'You do not have permission to access this profile.'}, status=403)
-
+                self.send_response({'error': 'You do not have permission to access this profile.'}, status=404)
 
 
 class TaskView(BaseHandler):
+    """Request handling methods for an individual task."""
 
-    def get(self):
-        pass
+    def get(self, username, task_id):
+        """Get detail for an existing task given a username and task id."""
+        with self.make_session() as session:
+            profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
+            if profile:
+                task = yield as_future(session.query(Task).filter(Task.profile == profile).get(task_id))
+                if task:
+                    self.send_response({'username': username, 'task': task.to_dict()})
+                else:
+                    self.send_response('username': username, 'task': None}, status=404)
+            else:
+                self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
 
-    def put(self):
-        pass
+    def put(self, username, task_id):
+        """Update an existing task given a username and task id."""
+        with self.make_session() as session:
+            profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
+            if profile:
+                task = yield as_future(session.query(Task).filter(Task.profile == profile).get(task_id))
+                if task:
+                    self.send_response({'username': username, 'task': task.to_dict()})
+                else:
+                    self.send_response({'username': username, 'task': None}, status=404)
+            else:
+                self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
 
-    def delete(self):
-        pass
+    def delete(self, username, task_id):
+        """Delete an existing task given a username and task id."""
+        with self.make_session() as session:
+            profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
+            if profile:
+                task = yield as_future(session.query(Task).filter(Task.profile == profile).get(task_id))
+                if task:
+                    session.delete(task)
+                    session.commit()
+                self.send_response({'username': username, 'msg': 'Deleted.'})
+            else:
+                self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
 
 
 class LoginView(BaseHandler):
+    """View for logging in."""
 
     def post(self):
-        pass
+        """Log a user in."""
+        needed = ['username', 'password']
+        if all([key in self.form_data for key in needed]):
+            with self.make_session() as session:
+                profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
+                if profile and hasher.verify(self.form_data['password'][0], profile.password):
+                    self.send_response({'msg': 'Authenticated'})
+                else:
+                    self.send_response({'error': 'Incorrect username/password combination.'}, status=400)
+
+        else:
+            self.send_response({'error': 'Some fields are missing'}, status=400)
 
 
 class LogoutView(BaseHandler):
+    """View for logging out."""
 
     def get(self):
-        pass
+        """Log a user out."""
+        self.send_response({'msg': 'Logged out.'})

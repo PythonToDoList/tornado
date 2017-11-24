@@ -1,5 +1,6 @@
 """Models and related code."""
 from datetime import datetime
+import secrets
 from sqlalchemy import (
     Boolean,
     Column,
@@ -26,12 +27,14 @@ class Profile(Base):
     email = Column(Unicode, nullable=False)
     password = Column(Unicode, nullable=False)
     date_joined = Column(DateTime, nullable=False)
+    token = Column(Unicode, nullable=False)
     tasks = relationship("Task", back_populates='profile')
 
     def __init__(self, *args, **kwargs):
         """Set the join date on initialization."""
         super().__init__(*args, **kwargs)
         self.date_joined = datetime.now()
+        self.token = secrets.token_urlsafe(64)
 
     def to_dict(self):
         """Get the object's properties as a dictionary."""
