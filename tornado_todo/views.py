@@ -34,7 +34,7 @@ class BaseHandler(RequestHandler, SessionMixin):
         return output
 
 class AuthenticationMixin:
-    # todo: extend "prepare" method to include authenttication
+    # todo: extend "prepare" method to include authentication
     def prepare(self):
         authorized = self.get_current_user()
         if authorized:
@@ -100,7 +100,9 @@ class RegistrationView(BaseHandler):
                 if not profile:
                     if self.form_data['password'] == self.form_data['password2']:
                         self.build_profile(session)
-                    self.send_response({'msg': 'Profile created'}, status=201)
+                        self.send_response({'msg': 'Profile created'}, status=201)
+                    else:
+                        self.send_response({'error': "Passwords don't match"}, status=400)
 
     def build_profile(self, session):
         """Create new profile using information from incoming request."""
@@ -114,7 +116,7 @@ class RegistrationView(BaseHandler):
         session.commit()
 
 
-class ProfileView(BaseHandler, AuthenticationMixin):
+class ProfileView(AuthenticationMixin, BaseHandler):
     """View for reading or modifying an existing profile."""
     SUPPORTED_METHODS = ("GET", "PUT", "DELETE")
 
@@ -124,6 +126,7 @@ class ProfileView(BaseHandler, AuthenticationMixin):
         with self.make_session() as session:
             profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
             if profile:
+                self.authenticate_response(profile)
                 self.send_response(profile.to_dict())
             else:
                 self.send_response({'error': 'You do not have permission to access this profile.'}, status=403)
@@ -142,6 +145,7 @@ class ProfileView(BaseHandler, AuthenticationMixin):
                     profile.email = self.form_data['email'][0]
                 session.add(profile)
                 session.commit()
+                self.authenticate_response(profile)
                 self.send_response({
                     'msg': 'Profile updated.',
                     'profile': profile.to_dict(),
@@ -160,7 +164,7 @@ class ProfileView(BaseHandler, AuthenticationMixin):
             self.send_response({}, status=204)
 
 
-class TaskListView(BaseHandler):
+class TaskListView(AuthenticationMixin, BaseHandler):
     """View for reading and adding new tasks."""
     SUPPORTED_METHODS = ("GET", "POST",)
 
@@ -171,6 +175,7 @@ class TaskListView(BaseHandler):
             profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
             if profile:
                 tasks = [task.to_dict() for task in profile.tasks]
+                self.authenticate_response(profile)
                 self.send_response({
                     'username': profile.username,
                     'tasks': tasks
@@ -197,14 +202,16 @@ class TaskListView(BaseHandler):
                     )
                     session.add(task)
                     session.commit()
+                    self.authenticate_response(profile)
                     self.send_response({'msg': 'posted'}, status=201)
                 except KeyError:
+                    self.authenticate_response(profile)
                     self.send_response({'error': 'Some fields are missing'}, 400)
             else:
                 self.send_response({'error': 'You do not have permission to access this profile.'}, status=404)
 
 
-class TaskView(BaseHandler):
+class TaskView(AuthenticationMixin, BaseHandler):
     """Request handling methods for an individual task."""
     SUPPORTED_METHODS = ("GET", "PUT", "DELETE")
 
@@ -215,8 +222,10 @@ class TaskView(BaseHandler):
             if profile:
                 task = yield as_future(session.query(Task).filter(Task.profile == profile).get(task_id))
                 if task:
+                    self.authenticate_response(profile)
                     self.send_response({'username': username, 'task': task.to_dict()})
                 else:
+                    self.authenticate_response(profile)
                     self.send_response({'username': username, 'task': None}, status=404)
             else:
                 self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
@@ -228,8 +237,10 @@ class TaskView(BaseHandler):
             if profile:
                 task = yield as_future(session.query(Task).filter(Task.profile == profile).get(task_id))
                 if task:
+                    self.authenticate_response(profile)
                     self.send_response({'username': username, 'task': task.to_dict()})
                 else:
+                    self.authenticate_response(profile)
                     self.send_response({'username': username, 'task': None}, status=404)
             else:
                 self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
@@ -243,6 +254,7 @@ class TaskView(BaseHandler):
                 if task:
                     session.delete(task)
                     session.commit()
+                self.authenticate_response(profile)
                 self.send_response({'username': username, 'msg': 'Deleted.'})
             else:
                 self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
@@ -259,6 +271,7 @@ class LoginView(BaseHandler):
             with self.make_session() as session:
                 profile = yield as_future(session.query(Profile).filter(Profile.username == username).first)
                 if profile and hasher.verify(self.form_data['password'][0], profile.password):
+                    self.authenticate_response(profile)
                     self.send_response({'msg': 'Authenticated'})
                 else:
                     self.send_response({'error': 'Incorrect username/password combination.'}, status=400)
