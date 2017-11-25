@@ -14,7 +14,7 @@ from tornado_sqlalchemy import SessionMixin, as_future
 class BaseHandler(RequestHandler, SessionMixin):
     """Base request handler for all upcoming views."""
 
-    def prepare(self, *args, **kwargs):
+    def prepare(self):
         """Set up some attributes before any method receives the request."""
         self.form_data = self._convert_to_unicode(self.request.arguments)
         self.response = {}
@@ -33,9 +33,38 @@ class BaseHandler(RequestHandler, SessionMixin):
         output = {key: [val.decode('utf8') for val in val_list] for key, val_list in data_dict.items()}
         return output
 
+class AuthenticationMixin:
+    # todo: extend "prepare" method to include authenttication
+    def prepare(self):
+        authorized = self.get_current_user()
+        if authorized:
+            super().prepare()
+        else:
+            self.send_forbidden_response()
+            self.finish()
+
+    def get_current_user(self):
+        token_cookie = self.get_secure_cookie('auth_token')
+        if token_cookie:
+            username, token = token_cookie.split(':')
+            with self.make_session() as session:
+                profile = session.query(Profile).filter(Profile.username == username).first()
+                if profile and profile.token == token:
+                    return True
+
+    def authenticate_response(self, profile):
+        token_cookie = f"{profile.username}:{profile.token}"
+        self.set_secure_cookie('auth_token', token_cookie)
+
+    def send_forbidden_response(self):
+        data = {'error': 'You do not have permission to access this profile.'}
+        self.set_status(403)
+        self.write(json.dumps(data))
+
 
 class InfoView(BaseHandler):
     """Simple view to return route information."""
+    SUPPORTED_METHODS = ("GET",)
 
     def get(self):
         """Handle a GET request for route information."""
@@ -58,6 +87,7 @@ class InfoView(BaseHandler):
 
 class RegistrationView(BaseHandler):
     """View for registering a new user."""
+    SUPPORTED_METHODS = ("POST",)
 
     @coroutine
     def post(self):
@@ -84,8 +114,9 @@ class RegistrationView(BaseHandler):
         session.commit()
 
 
-class ProfileView(BaseHandler):
+class ProfileView(BaseHandler, AuthenticationMixin):
     """View for reading or modifying an existing profile."""
+    SUPPORTED_METHODS = ("GET", "PUT", "DELETE")
 
     @coroutine
     def get(self, username):
@@ -131,6 +162,7 @@ class ProfileView(BaseHandler):
 
 class TaskListView(BaseHandler):
     """View for reading and adding new tasks."""
+    SUPPORTED_METHODS = ("GET", "POST",)
 
     @coroutine
     def get(self, username):
@@ -174,6 +206,7 @@ class TaskListView(BaseHandler):
 
 class TaskView(BaseHandler):
     """Request handling methods for an individual task."""
+    SUPPORTED_METHODS = ("GET", "PUT", "DELETE")
 
     def get(self, username, task_id):
         """Get detail for an existing task given a username and task id."""
@@ -184,7 +217,7 @@ class TaskView(BaseHandler):
                 if task:
                     self.send_response({'username': username, 'task': task.to_dict()})
                 else:
-                    self.send_response('username': username, 'task': None}, status=404)
+                    self.send_response({'username': username, 'task': None}, status=404)
             else:
                 self.send_response({'error': 'You do not have permission to access this data.'}, status=403)
 
@@ -217,6 +250,7 @@ class TaskView(BaseHandler):
 
 class LoginView(BaseHandler):
     """View for logging in."""
+    SUPPORTED_METHODS = ("POST",)
 
     def post(self):
         """Log a user in."""
@@ -235,6 +269,7 @@ class LoginView(BaseHandler):
 
 class LogoutView(BaseHandler):
     """View for logging out."""
+    SUPPORTED_METHODS = ("GET",)
 
     def get(self):
         """Log a user out."""

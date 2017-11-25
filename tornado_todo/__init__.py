@@ -34,8 +34,9 @@ def main():
         (api_root + r'/accounts/([\w]+)/tasks', TaskListView),
         (api_root + r'/accounts/([\w]+)/tasks/([\d]+)', TaskView),
     ],
+        session_factory=factory,
+        cookie_secret=os.environ.get('SESSION_SECRET', 'beefy'),
         **options.group_dict('application'),
-        session_factory=factory
     )
     http_server = HTTPServer(app)
     http_server.listen(options.port)
